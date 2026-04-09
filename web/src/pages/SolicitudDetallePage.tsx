@@ -578,7 +578,7 @@ function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
 }) {
   const {
     contratos, desembolsos, pagares, prestamoId,
-    loading, refetch,
+    loading,
     crearContrato, firmarContrato, validarContrato,
     registrarDesembolso, recibirPagare,
   } = useFormalizacion(solicitudId)
