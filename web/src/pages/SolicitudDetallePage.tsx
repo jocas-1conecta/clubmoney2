@@ -573,7 +573,13 @@ function RevisionCard({ revision }: { revision: RevisionSupervisor }) {
 
 function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
   solicitudId: string
-  solicitud: { monto_solicitado: number; tasa_interes: number; plazo_dias: number; estado: string }
+  solicitud: {
+    monto_solicitado: number; tasa_interes: number; plazo_dias: number; estado: string;
+    cliente?: { nombre_completo?: string; dni?: string; direccion?: string; telefono?: string } | null;
+    asesor?: { nombre_completo?: string } | null;
+    tipo_cronograma?: string;
+    created_at?: string;
+  }
   canTesoreria: boolean
 }) {
   const {
@@ -590,6 +596,7 @@ function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
     numeroOperacion: '',
   })
   const [submitting, setSubmitting] = useState(false)
+  const [previewContract, setPreviewContract] = useState<{ tipo: string; id: string } | null>(null)
 
   const noPrestamoYet = !prestamoId && !loading
 
@@ -645,14 +652,17 @@ function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
                 padding: 'var(--sp-3)', borderRadius: 'var(--radius-md)',
                 background: c.estado === 'VALIDADO' ? 'rgba(0,229,160,0.06)' : c.estado === 'FIRMADO' ? 'rgba(91,141,239,0.06)' : 'rgba(255,255,255,0.02)',
                 border: `1px solid ${c.estado === 'VALIDADO' ? 'rgba(0,229,160,0.15)' : 'var(--color-border-1)'}`,
-              }}>
+                cursor: 'pointer', transition: 'background 0.15s',
+              }}
+                onClick={() => setPreviewContract({ tipo: c.tipo_contrato, id: c.id })}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
                   <div style={{ width: '36px', height: '36px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(91,141,239,0.1)', color: '#5B8DEF' }}>
                     <FileText size={16} />
                   </div>
                   <div>
                     <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--color-text-1)' }}>
-                      {c.tipo_contrato}
+                      {c.tipo_contrato === 'PAGARE' ? 'Pagaré' : 'Contrato de Préstamo'}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
                       <Badge variant={statusVariant(c.estado)} dot>{c.estado}</Badge>
@@ -661,9 +671,13 @@ function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+                  <Button variant="ghost" size="sm" icon={<Eye size={12} />}
+                    onClick={(e) => { e.stopPropagation(); setPreviewContract({ tipo: c.tipo_contrato, id: c.id }) }}
+                  >Ver</Button>
                   {!c.firmado && canTesoreria && (
                     <Button variant="secondary" size="sm" icon={<Stamp size={12} />}
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.stopPropagation()
                         try { await firmarContrato(c.id); toast.success('Firmado', 'Contrato marcado como firmado') }
                         catch { toast.error('Error', 'No se pudo firmar') }
                       }}
@@ -671,7 +685,8 @@ function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
                   )}
                   {c.firmado && !c.validado_por_tesoreria && canTesoreria && (
                     <Button variant="primary" size="sm" icon={<CheckCircle size={12} />}
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.stopPropagation()
                         try { await validarContrato(c.id); toast.success('Validado', 'Contrato validado por Tesorería') }
                         catch { toast.error('Error', 'No se pudo validar') }
                       }}
@@ -848,6 +863,152 @@ function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
           </div>
         )}
       </div>
+      {/* ── CONTRACT PREVIEW MODAL ── */}
+      {previewContract && createPortal(
+        <div className="cm-modal-overlay" onClick={() => setPreviewContract(null)}>
+          <div className="cm-modal" style={{ maxWidth: '720px', maxHeight: '85vh', overflow: 'auto' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--sp-4) var(--sp-5)', borderBottom: '1px solid var(--color-border-1)' }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-lg)', fontWeight: 700, color: 'var(--color-text-1)' }}>
+                {previewContract.tipo === 'PAGARE' ? '📄 Pagaré' : '📋 Contrato de Préstamo'}
+              </h3>
+              <button onClick={() => setPreviewContract(null)} style={{ background: 'none', border: 'none', color: 'var(--color-text-3)', cursor: 'pointer', padding: '4px' }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* ── Document Body ── */}
+            <div style={{
+              padding: 'var(--sp-6)', background: '#fafafa', color: '#1a1a2e',
+              fontFamily: 'Georgia, "Times New Roman", serif', fontSize: '13px', lineHeight: '1.7',
+            }}>
+              {previewContract.tipo === 'PAGARE' ? (
+                /* ═══ PAGARÉ DOCUMENT ═══ */
+                <div>
+                  <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px', color: '#1a1a2e' }}>PAGARÉ</h2>
+                    <p style={{ fontSize: '11px', color: '#666' }}>Título Valor — Ley N° 27287</p>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', fontSize: '12px' }}>
+                    <span><strong>Lugar:</strong> Lima, Perú</span>
+                    <span><strong>Fecha:</strong> {new Date().toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                  </div>
+
+                  <div style={{ border: '2px solid #1a1a2e', padding: '12px 16px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Monto</span>
+                    <span style={{ fontSize: '22px', fontWeight: 700 }}>S/ {(solicitud.monto_solicitado + solicitud.monto_solicitado * (solicitud.tasa_interes / 100)).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
+                  </div>
+
+                  <p style={{ textAlign: 'justify', marginBottom: '16px' }}>
+                    Debo(emos) y pagaré(mos) incondicionalmente a la orden de <strong>CLUBMONEY OPERACIONES S.A.C.</strong>,
+                    la cantidad de <strong>S/ {(solicitud.monto_solicitado + solicitud.monto_solicitado * (solicitud.tasa_interes / 100)).toLocaleString('es-PE', { minimumFractionDigits: 2 })}</strong> (Soles),
+                    en un plazo de <strong>{solicitud.plazo_dias} días</strong> calendario, contados a partir de la fecha de desembolso.
+                  </p>
+
+                  <p style={{ textAlign: 'justify', marginBottom: '16px' }}>
+                    La tasa de interés pactada es de <strong>{solicitud.tasa_interes}%</strong> sobre el capital de
+                    <strong> S/ {solicitud.monto_solicitado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</strong>.
+                    El incumplimiento generará intereses moratorios según la tasa máxima permitida por el BCRP.
+                  </p>
+
+                  <div style={{ marginTop: '48px', display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ textAlign: 'center', width: '45%' }}>
+                      <div style={{ borderTop: '1px solid #333', paddingTop: '8px', fontSize: '11px' }}>
+                        <strong>{solicitud.cliente?.nombre_completo ?? 'N/A'}</strong><br />
+                        DNI: {solicitud.cliente?.dni ?? '—'}<br />
+                        <em>Deudor(a)</em>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center', width: '45%' }}>
+                      <div style={{ borderTop: '1px solid #333', paddingTop: '8px', fontSize: '11px' }}>
+                        <strong>CLUBMONEY OPERACIONES</strong><br />
+                        RUC: 20XXXXXXXXX<br />
+                        <em>Acreedor</em>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* ═══ CONTRATO DE PRÉSTAMO DOCUMENT ═══ */
+                <div>
+                  <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                    <h2 style={{ fontSize: '18px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px', color: '#1a1a2e' }}>CONTRATO DE PRÉSTAMO DE DINERO</h2>
+                    <p style={{ fontSize: '11px', color: '#666' }}>Código Civil Art. 1648° — Mutuo Dinerario</p>
+                  </div>
+
+                  <p style={{ textAlign: 'justify', marginBottom: '16px' }}>
+                    Conste por el presente documento, el contrato de préstamo de dinero que celebran de una parte:
+                  </p>
+
+                  <div style={{ background: '#f0f0f0', padding: '12px 16px', borderRadius: '6px', marginBottom: '16px', fontSize: '12px' }}>
+                    <p style={{ marginBottom: '8px' }}><strong>EL MUTUANTE (Prestamista):</strong> CLUBMONEY OPERACIONES S.A.C., con domicilio legal en Lima, Perú.</p>
+                    <p><strong>EL MUTUATARIO (Prestatario):</strong> {solicitud.cliente?.nombre_completo ?? 'N/A'}, identificado con DNI N° {solicitud.cliente?.dni ?? '—'}, con domicilio en {solicitud.cliente?.direccion ?? 'Lima, Perú'}.</p>
+                  </div>
+
+                  <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px', color: '#1a1a2e' }}>CLÁUSULA PRIMERA: DEL PRÉSTAMO</h4>
+                  <p style={{ textAlign: 'justify', marginBottom: '16px' }}>
+                    EL MUTUANTE entrega en calidad de préstamo a EL MUTUATARIO la suma de
+                    <strong> S/ {solicitud.monto_solicitado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</strong> (Soles),
+                    mediante {solicitud.tipo_cronograma === 'FIJO' ? 'cuotas diarias fijas' : 'cronograma flexible'}, bajo las siguientes condiciones:
+                  </p>
+
+                  <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '12px' }}>
+                    <tbody>
+                      {[
+                        ['Capital', `S/ ${solicitud.monto_solicitado.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`],
+                        ['Tasa de Interés', `${solicitud.tasa_interes}%`],
+                        ['Interés', `S/ ${(solicitud.monto_solicitado * solicitud.tasa_interes / 100).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`],
+                        ['Total a Pagar', `S/ ${(solicitud.monto_solicitado + solicitud.monto_solicitado * solicitud.tasa_interes / 100).toLocaleString('es-PE', { minimumFractionDigits: 2 })}`],
+                        ['Plazo', `${solicitud.plazo_dias} días calendario`],
+                        ['Tipo de Cronograma', solicitud.tipo_cronograma ?? 'FIJO'],
+                      ].map(([k, v]) => (
+                        <tr key={k} style={{ borderBottom: '1px solid #ddd' }}>
+                          <td style={{ padding: '6px 8px', color: '#555' }}>{k}</td>
+                          <td style={{ padding: '6px 8px', fontWeight: 600, textAlign: 'right' }}>{v}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px', color: '#1a1a2e' }}>CLÁUSULA SEGUNDA: DEL PLAZO Y PAGO</h4>
+                  <p style={{ textAlign: 'justify', marginBottom: '16px' }}>
+                    EL MUTUATARIO se obliga a devolver el monto total en un plazo de <strong>{solicitud.plazo_dias} días</strong>,
+                    mediante pagos diarios en el domicilio del asesor asignado: <strong>{solicitud.asesor?.nombre_completo ?? 'N/A'}</strong>.
+                  </p>
+
+                  <h4 style={{ fontSize: '13px', fontWeight: 700, marginBottom: '8px', color: '#1a1a2e' }}>CLÁUSULA TERCERA: DE LA MORA</h4>
+                  <p style={{ textAlign: 'justify', marginBottom: '16px' }}>
+                    El incumplimiento de cualquier cuota dará lugar al cobro de intereses moratorios conforme a la tasa máxima
+                    permitida por el Banco Central de Reserva del Perú (BCRP).
+                  </p>
+
+                  <p style={{ fontSize: '11px', color: '#666', marginTop: '24px' }}>
+                    Firmado en Lima, a los {new Date().toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })}.
+                  </p>
+
+                  <div style={{ marginTop: '48px', display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ textAlign: 'center', width: '45%' }}>
+                      <div style={{ borderTop: '1px solid #333', paddingTop: '8px', fontSize: '11px' }}>
+                        <strong>{solicitud.cliente?.nombre_completo ?? 'N/A'}</strong><br />
+                        DNI: {solicitud.cliente?.dni ?? '—'}<br />
+                        <em>EL MUTUATARIO</em>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'center', width: '45%' }}>
+                      <div style={{ borderTop: '1px solid #333', paddingTop: '8px', fontSize: '11px' }}>
+                        <strong>CLUBMONEY OPERACIONES</strong><br />
+                        RUC: 20XXXXXXXXX<br />
+                        <em>EL MUTUANTE</em>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }
