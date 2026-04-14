@@ -5,6 +5,7 @@ interface Tab {
   label: string
   icon?: React.ReactNode
   badge?: string | number
+  onboardingId?: string
 }
 
 interface TabsProps {
@@ -40,6 +41,7 @@ export default function Tabs({
             aria-selected={active === tab.id}
             className={`cm-tab ${active === tab.id ? 'cm-tab--active' : ''}`}
             onClick={() => handleClick(tab.id)}
+            {...(tab.onboardingId ? { 'data-onboarding': tab.onboardingId } : {})}
           >
             {tab.icon && <span className="cm-tab__icon">{tab.icon}</span>}
             <span>{tab.label}</span>

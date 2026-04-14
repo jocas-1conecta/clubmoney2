@@ -10,11 +10,13 @@ import {
 } from 'react'
 import type { OnboardingContextValue, TourConfig, TourStep } from './tours/types'
 import { originacionCreditoTour } from './tours/originacionCredito'
+import { formalizacionDesembolsoTour } from './tours/formalizacionDesembolso'
 
 /* ─── Registry ───────────────────────────────────────────── */
 
 const TOUR_REGISTRY: TourConfig[] = [
   originacionCreditoTour,
+  formalizacionDesembolsoTour,
 ]
 
 /* ─── LocalStorage ───────────────────────────────────────── */

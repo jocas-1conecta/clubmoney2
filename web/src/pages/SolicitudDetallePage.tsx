@@ -159,7 +159,7 @@ export default function SolicitudDetallePage() {
           { id: 'documentos', label: 'Documentos', icon: <Image size={14} />, badge: solicitud.documentos?.length ?? 0 },
           { id: 'dictamen', label: 'Dictamen', icon: <Shield size={14} />, badge: solicitud.revisiones?.length ?? 0 },
           ...(['EN_FORMALIZACION', 'DESEMBOLSADA', 'ACTIVA'].includes(solicitud.estado)
-            ? [{ id: 'formalizacion', label: 'Formalización', icon: <Stamp size={14} /> }]
+            ? [{ id: 'formalizacion', label: 'Formalización', icon: <Stamp size={14} />, onboardingId: 'tab-formalizacion' }]
             : []),
         ]}
       >
@@ -610,7 +610,7 @@ function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
       )}
 
       {/* ── 1. CONTRATOS ── */}
-      <div className="glass-card" style={{ padding: 'var(--sp-5)' }}>
+      <div className="glass-card" style={{ padding: 'var(--sp-5)' }} data-onboarding="seccion-contratos">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-4)' }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-lg)', fontWeight: 600, color: 'var(--color-text-1)', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
             <FileText size={18} style={{ color: '#5B8DEF' }} /> Contratos
@@ -688,7 +688,7 @@ function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
       </div>
 
       {/* ── 2. DESEMBOLSO ── */}
-      <div className="glass-card" style={{ padding: 'var(--sp-5)', border: canTesoreria && prestamoId && desembolsos.length === 0 ? '1px solid rgba(91,141,239,0.15)' : undefined }}>
+      <div className="glass-card" style={{ padding: 'var(--sp-5)', border: canTesoreria && prestamoId && desembolsos.length === 0 ? '1px solid rgba(91,141,239,0.15)' : undefined }} data-onboarding="seccion-desembolso">
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-lg)', fontWeight: 600, color: 'var(--color-text-1)', marginBottom: 'var(--sp-4)', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
           <Banknote size={18} style={{ color: '#00E5A0' }} /> Desembolso
         </h3>
@@ -793,7 +793,7 @@ function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
       </div>
 
       {/* ── 3. PAGARÉS ── */}
-      <div className="glass-card" style={{ padding: 'var(--sp-5)' }}>
+      <div className="glass-card" style={{ padding: 'var(--sp-5)' }} data-onboarding="seccion-pagares">
         <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-lg)', fontWeight: 600, color: 'var(--color-text-1)', marginBottom: 'var(--sp-4)', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
           <Download size={18} style={{ color: '#C084FC' }} /> Recepción de Pagarés
         </h3>
