@@ -183,6 +183,17 @@ export function useSolicitudDetalle(solicitudId: string | undefined) {
 
     if (updErr) throw updErr
 
+    // 3. If approved → auto-generate préstamo + contratos + cuotas + pagaré
+    if (data.dictamen === 'APROBADA') {
+      const { error: rpcErr } = await supabase
+        .rpc('generar_formalizacion', { p_solicitud_id: solicitudId })
+
+      if (rpcErr) {
+        console.error('[emitirDictamen] generar_formalizacion failed:', rpcErr.message)
+        // Don't throw — the dictamen was already saved, user can retry formalization
+      }
+    }
+
     await fetchDetalle()
   }
 
