@@ -285,7 +285,31 @@ El Supervisor accede a una vista consolidada de toda la información del solicit
 | **SLA** | Post-aprobación inmediata |
 | **Estado resultante** | Creación de registro `prestamos` con `estado = 'PENDIENTE_DESEMBOLSO'` → `'ACTIVO'` |
 
-#### 5.1 Generación de Contratos
+#### Máquina de Estados — `contratos.estado`
+
+```
+              ┌───────────────────────────────────────────────────┐
+              │                                                   │
+              ▼                                                   │
+          GENERADO ──────► FIRMADO ──────► VALIDADO              │
+              │                │                                  │
+              │                │          (Tesorería confirma)    │
+              │                │                                  │
+              │                └──────► DEVUELTO ─────────────────┘
+              │                         (re-subida → vuelve a FIRMADO)
+              │
+              └──► (Permanece en GENERADO hasta que el asesor
+                    sube la foto del contrato firmado)
+```
+
+| Estado | Descripción | Transiciones válidas | Actor |
+|---|---|---|---|
+| `GENERADO` | Contrato/Pagaré creado por el sistema (PDF generado) | → `FIRMADO` | Asesor (sube foto firmada) |
+| `FIRMADO` | Documento firmado subido al sistema | → `VALIDADO`, → `DEVUELTO` | Tesorería (valida o devuelve) |
+| `VALIDADO` | Tesorería confirmó legibilidad y autenticidad | — (Terminal para este flujo) | Tesorería |
+| `DEVUELTO` | Documento rechazado por calidad o inconsistencia | → `FIRMADO` (re-subida) | Tesorería (devuelve) → Asesor (corrige) |
+
+#### 5.1 Generación Automática (Post-Aprobación)
 
 Al aprobarse la solicitud, el sistema genera automáticamente:
 
@@ -293,13 +317,26 @@ Al aprobarse la solicitud, el sistema genera automáticamente:
 |---|---|---|
 | `prestamos` | INSERT | `solicitud_id`, `monto_capital`, `monto_interes`, `monto_total_pagar`, `saldo_pendiente`, `estado = 'PENDIENTE_DESEMBOLSO'` |
 | `contratos` | INSERT (×2) | `tipo_contrato = 'CONTRATO_PRESTAMO'` + `tipo_contrato = 'PAGARE'`, `estado = 'GENERADO'` |
-| `cuotas_programadas` | INSERT (×N) | Cronograma según `tipo_cronograma` |
+| `cuotas_programadas` | INSERT (×N) | Cronograma según `tipo_cronograma` (ver fórmulas abajo) |
+| `recepcion_pagares` | INSERT | `contrato_id` (del pagaré), `asesor_id`, `recibido = FALSE`, `estado = 'PENDIENTE'` |
+| `cuadernos_cliente` | INSERT | `prestamo_id`, `cliente_id`, Libreta digital para registro de pagos |
+
+**Fórmulas de Generación de Cronograma:**
+
+| Tipo Cronograma | Filas generadas | Fórmula `monto_cuota` | Comportamiento |
+|---|---|---|---|
+| `FIJO` | N = `plazo_dias` | `monto_total_pagar / plazo_dias` | Cuotas iguales diarias. El cobrador espera exactamente ese monto cada día. |
+| `FLEXIBLE` | 0 filas | — | No se genera cronograma. El cliente paga lo que puede, cuando puede, hasta cubrir `monto_total_pagar`. El saldo se actualiza por cada pago. |
+| `HIBRIDO` | N = `plazo_dias` | `monto_total_pagar / plazo_dias` | Cuotas referenciales (`es_sugerida = TRUE`). Funcionan como guía, pero se aceptan pagos parciales o superiores sin penalización. |
+
+> [!TIP]
+> **Cálculo base:** En todos los casos, `monto_interes = monto_capital × (tasa_interes / 100)` y `monto_total_pagar = monto_capital + monto_interes`. La `cuota_diaria` (para FIJO) se calcula como `monto_total_pagar / plazo_dias`.
 
 #### 5.2 Proceso de Firma
 
 | Opción | Flujo |
 |---|---|
-| **A — Firma Física (actual)** | Se imprime el contrato, el cliente firma, el asesor sube la foto del documento firmado a `contratos.url_archivo`. El contrato transiciona a `estado = 'SUBIDO'`. |
+| **A — Firma Física (actual)** | Se imprime el contrato, el cliente firma, el asesor sube la foto del documento firmado a `contratos.url_archivo`. El contrato transiciona a `estado = 'FIRMADO'`. |
 | **B — Firma Digital (futura)** | Firma biométrica o digital directa en la app. |
 
 > [!WARNING]
@@ -321,22 +358,78 @@ Tesorería recibe la alerta de que un crédito está listo para desembolso. Ante
 |---|---|---|
 | `contratos` | UPDATE | `validado_por_tesoreria`, `validado_por`, `estado` → `'VALIDADO'` / `'DEVUELTO'` |
 
+#### 5.3.1 Ciclo de Devolución y Re-subida
+
+Cuando Tesorería devuelve un contrato, se activa el siguiente ciclo:
+
+```
+  TESORERÍA marca DEVUELTO          ASESOR recibe notificación
+  + registra motivo_devolucion  ──►  en Activity Feed
+         │                                    │
+         │                                    ▼
+         │                           Asesor corrige el documento
+         │                           (re-imprime, re-firma, re-fotografía)
+         │                                    │
+         │                                    ▼
+         │                           Asesor re-sube foto a
+         │                           contratos.url_archivo
+         │                           estado → FIRMADO (reset)
+         │                                    │
+         ◄────────────────────────────────────┘
+         Tesorería ve el contrato de nuevo
+         en su bandeja y re-valida
+```
+
+**Reglas del ciclo de devolución:**
+
+| Regla | Descripción |
+|---|---|
+| **Re-subida sobre el mismo registro** | El asesor actualiza `contratos.url_archivo` del registro existente. No se crea un nuevo registro `contratos`. |
+| **Reset de validación** | Al re-subir, `validado_por_tesoreria` vuelve a `FALSE` y `estado` vuelve a `FIRMADO`. |
+| **Sin límite de intentos** | No hay un máximo de ciclos devolución→re-subida. Si persisten los problemas, Tesorería escala al Supervisor verbalmente. |
+| **Trazabilidad** | Cada devolución y re-subida genera registros en `audit_logs` con timestamps, actor y motivo. |
+
+> [!IMPORTANT]
+> **El préstamo permanece en `PENDIENTE_DESEMBOLSO`** durante todo el ciclo de devolución. El dinero no sale hasta que todos los contratos estén en estado `VALIDADO`.
+
 #### 5.4 Desembolso Controlado
 
-Solo tras la validación exitosa de Tesorería:
+Solo tras la validación exitosa de Tesorería (todos los contratos en `VALIDADO`):
 
 | Tabla | Operación | Campos clave |
 |---|---|---|
 | `desembolsos` | INSERT | `prestamo_id`, `tesorero_id`, `monto`, `medio_desembolso`, `numero_operacion`, `url_comprobante` |
-| `prestamos` | UPDATE | `estado` → `'ACTIVO'`, `fecha_desembolso` |
+| `prestamos` | UPDATE | `estado` → `'ACTIVO'`, `fecha_desembolso` = HOY |
 
-#### 5.5 Custodia de Títulos Valores (Cierre del Día)
+**Medios de desembolso permitidos:**
+
+| Medio | Datos requeridos | Frecuencia |
+|---|---|---|
+| `TRANSFERENCIA_BANCARIA` | Banco destino, cuenta destino, número de operación, captura de comprobante | Estándar (95%+) |
+| `EFECTIVO` | Registro manual con evidencia fotográfica | Excepcional (requiere justificación) |
+
+#### 5.5 Handoff a Cobranza (Activación del Préstamo)
+
+Inmediatamente después del desembolso exitoso, el sistema ejecuta automáticamente:
+
+| Acción | Tabla | Descripción |
+|---|---|---|
+| Activación del préstamo | `prestamos` | `estado` → `'ACTIVO'`, `fecha_desembolso` = fecha actual |
+| Creación de libreta digital | `cuadernos_cliente` | Si no existe, se crea con `saldo_actual = monto_total_pagar` |
+| Inclusión en ruta de cobranza | `ruta_clientes` | El cliente se agrega a la ruta del cobrador de su zona a partir del día siguiente |
+| Notificación al cliente | `notificaciones` | WhatsApp/SMS confirmando el desembolso, monto y fecha de primer pago |
+| Registro de primer evento | `registros_cuaderno` | `tipo_registro = 'NOTA_CAMPO'`, indicando "Préstamo activado — Desembolso de S/ X" |
+
+> [!TIP]
+> **Continuidad operativa.** Este handoff automático garantiza que el préstamo recién activado aparezca en la ruta del cobrador al día siguiente, sin intervención manual. El cobrador verá al nuevo cliente en su app con el saldo y la cuota esperada.
+
+#### 5.6 Custodia de Títulos Valores (Cierre del Día)
 
 Al final del día, el Asesor debe entregar los pagarés físicos al Administrador:
 
 | Tabla | Operación | Campos clave |
 |---|---|---|
-| `recepcion_pagares` | INSERT (al generar contrato) | `contrato_id`, `prestamo_id`, `asesor_id`, `recibido = FALSE`, `estado = 'PENDIENTE'` |
+| `recepcion_pagares` | (ya creado en 5.1) | `contrato_id`, `prestamo_id`, `asesor_id`, `recibido = FALSE`, `estado = 'PENDIENTE'` |
 | `recepcion_pagares` | UPDATE (al recibir) | `recibido_por`, `fecha_recepcion`, `recibido = TRUE`, `estado = 'RECIBIDO'` |
 
 > [!CAUTION]
