@@ -45,7 +45,7 @@ web/src/
 - **RBAC model:** 6 roles (ASESOR_COMERCIAL, COBRADOR_VERIFICADOR, SUPERVISOR, TESORERIA, ASESOR_ADMINISTRATIVO, GERENCIA) + per-user grant/deny overrides.
 
 ### Routes
-- **Protected:** Wrapped in `<Route element={<ProtectedRoute />}>` — `/`, `/clientes`, `/clientes/:id`, `/solicitudes`, `/solicitudes/:id`, `/prestamos`, `/cobranza`, `/morosidad`, `/configuracion`
+- **Protected:** Wrapped in `<Route element={<ProtectedRoute />}>` — `/`, `/clientes`, `/clientes/:id`, `/solicitudes`, `/solicitudes/:id`, `/prestamos`, `/cobranza`, `/cobranza/:id`, `/morosidad`, `/configuracion`
 - **Public:** Outside the AuthGuard — `/login`, `/sin-acceso`
 
 ### Git and Deployment
