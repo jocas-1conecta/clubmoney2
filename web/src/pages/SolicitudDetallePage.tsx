@@ -575,7 +575,7 @@ function FormalizacionTab({ solicitudId, solicitud, canTesoreria }: {
   solicitudId: string
   solicitud: {
     monto_solicitado: number; tasa_interes: number; plazo_dias: number; estado: string;
-    cliente?: { nombre_completo?: string; dni?: string; direccion?: string; telefono?: string } | null;
+    cliente?: { nombre_completo?: string; dni?: string; direccion?: string; telefono?: string | null; foto_url?: string | null } | null;
     asesor?: { nombre_completo?: string } | null;
     tipo_cronograma?: string;
     created_at?: string;
