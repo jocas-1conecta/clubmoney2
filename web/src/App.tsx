@@ -16,6 +16,7 @@ import SolicitudesPage from '@/pages/SolicitudesPage'
 import SolicitudDetallePage from '@/pages/SolicitudDetallePage'
 import PrestamosPage from '@/pages/PrestamosPage'
 import CobranzaPage from '@/pages/CobranzaPage'
+import RutaDetallePage from '@/pages/RutaDetallePage'
 import MorosidadPage from '@/pages/MorosidadPage'
 import ConfiguracionPage from '@/pages/ConfiguracionPage'
 
@@ -43,6 +44,7 @@ export default function App() {
                 <Route path="solicitudes/:id" element={<SolicitudDetallePage />} />
                 <Route path="prestamos" element={<PrestamosPage />} />
                 <Route path="cobranza" element={<CobranzaPage />} />
+                <Route path="cobranza/:id" element={<RutaDetallePage />} />
                 <Route path="morosidad" element={<MorosidadPage />} />
                 <Route path="configuracion" element={<ConfiguracionPage />} />
               </Route>

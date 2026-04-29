@@ -7,6 +7,7 @@ interface UseCobranzaOptions {
   pageSize?: number
   medioPago?: string
   estado?: string
+  search?: string
   sortKey?: string
   sortDirection?: 'asc' | 'desc'
 }
@@ -25,6 +26,7 @@ export function useCobranza(options: UseCobranzaOptions = {}) {
     pageSize = 15,
     medioPago = '',
     estado = '',
+    search = '',
     sortKey = 'fecha_pago',
     sortDirection = 'desc',
   } = options
@@ -62,6 +64,7 @@ export function useCobranza(options: UseCobranzaOptions = {}) {
 
         if (medioPago) query = query.eq('medio_pago', medioPago)
         if (estado) query = query.eq('estado', estado)
+        if (search) query = query.ilike('cliente.nombre_completo', `%${search}%`)
 
         query = query
           .order(sortKey, { ascending: sortDirection === 'asc' })
@@ -117,7 +120,7 @@ export function useCobranza(options: UseCobranzaOptions = {}) {
 
     fetchData()
     return () => { cancelled = true }
-  }, [page, pageSize, medioPago, estado, sortKey, sortDirection, trigger])
+  }, [page, pageSize, medioPago, estado, search, sortKey, sortDirection, trigger])
 
   return { pagos, totalCount, loading, stats, refetch }
 }
